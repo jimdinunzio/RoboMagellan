@@ -3,7 +3,7 @@
 #include <MsTimer2.h>
 
 // Assign your channel in pins
-#define THROTTLE_IN_PIN 3
+#define THROTTLE_IN_ESTOP_PIN 3
 #define STEERING_IN_PIN 4
 
 // Assign your channel out pins
@@ -21,7 +21,7 @@ static Servo servoThrottle;
 static Servo servoSteering;
 
 // channels have new signals flags
-#define THROTTLE_FLAG 1
+#define THROTTLE_ESTOP_FLAG 1
 #define STEERING_FLAG 2
 
 // These variables are for manual mode
@@ -50,6 +50,10 @@ void setup()
 {
   Serial.begin(115200);
 
+  // input pins
+  pinMode(THROTTLE_IN_ESTOP_PIN, INPUT);
+  pinMode(STEERING_IN_PIN, INPUT);
+  
   // attach servo objects  
   servoThrottle.attach(THROTTLE_OUT_PIN);
   servoSteering.attach(STEERING_OUT_PIN);
@@ -61,7 +65,7 @@ void setup()
 
   // Interrupt for throttle pin is always present 
   // In Auto Mode it serves as the safety cutoff switch
-  attachInterrupt(THROTTLE_IN_PIN, calcThrottle,CHANGE); 
+  attachInterrupt(THROTTLE_IN_ESTOP_PIN, calcThrottle,CHANGE); 
   
   // initialize LED digital pin as an output.
   pinMode(LED_BUILTIN, OUTPUT);
@@ -108,13 +112,13 @@ void loop()
         case 'f':
           throttlePercent = min(100, throttlePercent + 5);
           newThrottle = getThrottleByPercent(throttlePercent);
-          bUpdateFlags |= THROTTLE_FLAG;
+          bUpdateFlags |= THROTTLE_ESTOP_FLAG;
           Serial.printf("Increase throttle 5%%. [%d%%] PWM = %d\n", throttlePercent, newThrottle);
           break;
         case 'b':
           throttlePercent = max(-100, throttlePercent - 5);
           newThrottle = getThrottleByPercent(throttlePercent);
-          bUpdateFlags |= THROTTLE_FLAG;
+          bUpdateFlags |= THROTTLE_ESTOP_FLAG;
           Serial.printf("Decrease throttle 5%%. [%d%%] PWM = %d\n", throttlePercent, newThrottle);
           break;
         case 's':
@@ -126,7 +130,7 @@ void loop()
         case 'n':
           throttlePercent = 0;
           newThrottle = getThrottleByPercent(throttlePercent);
-          bUpdateFlags |= THROTTLE_FLAG;
+          bUpdateFlags |= THROTTLE_ESTOP_FLAG;
           Serial.printf("Neutral throttle. [0%%] PWM = %d\n", newThrottle);
           break;
         case 'm':
@@ -156,7 +160,7 @@ void loop()
       noInterrupts(); // turn interrupts off 
       bUpdateFlags = bUpdateFlagsShared;
       
-      if(bUpdateFlags & THROTTLE_FLAG)
+      if(bUpdateFlags & THROTTLE_ESTOP_FLAG)
       {
         newThrottle = unThrottleInShared;
       }
@@ -172,13 +176,13 @@ void loop()
   }
   else // autoMode 
   {
-    // update the safety switch, movementEnabled, from remote throttle which must be engaged
+    // update the estop safety switch, movementEnabled, from remote throttle which must be engaged
     // for movement to happen
     if(bUpdateFlagsShared)
     {
       noInterrupts(); // turn interrupts off 
       
-      if(bUpdateFlagsShared & THROTTLE_FLAG)
+      if(bUpdateFlagsShared & THROTTLE_ESTOP_FLAG)
         movementEnabled = unThrottleInShared > 1700;
      
       bUpdateFlagsShared = 0;
@@ -189,9 +193,9 @@ void loop()
   // Only update controls if movement is enabled or manual mode is active.
   if(movementEnabled || not autoMode)
   {
-    if(bUpdateFlags & THROTTLE_FLAG)
+    if(bUpdateFlags & THROTTLE_ESTOP_FLAG)
       {
-        Serial.printf("newThrottle = %d\n", newThrottle);
+        //Serial.printf("newThrottle = %d\n", newThrottle);
         if(servoThrottle.readMicroseconds() != newThrottle)
         {
           servoThrottle.writeMicroseconds(newThrottle);
@@ -218,7 +222,7 @@ void calcThrottle()
 {
   uint16_t tempThrottle;
   // if the pin is high, its a rising edge
-  if(digitalRead(THROTTLE_IN_PIN) == HIGH)
+  if(digitalRead(THROTTLE_IN_ESTOP_PIN) == HIGH)
   { 
     ulThrottleStart = micros();
   }
@@ -228,7 +232,7 @@ void calcThrottle()
     if (tempThrottle >= 1000 && tempThrottle <= 2000)
     {
       unThrottleInShared = tempThrottle;
-      bUpdateFlagsShared |= THROTTLE_FLAG;
+      bUpdateFlagsShared |= THROTTLE_ESTOP_FLAG;
     }
   }
 }
