@@ -13,7 +13,7 @@
 #define NEUTRAL_PWM 1500
 #define FULL_FORWARD_PWM 2000
 #define FULL_REVERSE_PWM 1000
-#define FULL_RIGHT_PWM 2000
+#define FULL_RIGHT_PWM 1960
 #define FULL_LEFT_PWM 1100
 
 // Servo objects 
@@ -98,28 +98,28 @@ void loop()
       switch (incomingByte) 
       {
         case 'r':
-          steeringPercent = min(100, steeringPercent + 5);
+          steeringPercent = min((FULL_RIGHT_PWM - NEUTRAL_PWM) / 5, steeringPercent + 2);
           newSteering = getSteeringByPercent(steeringPercent);
           bUpdateFlags |= STEERING_FLAG;
-          Serial.printf("Turning right by 5%% more. [%d%%] PWM = %d\n", steeringPercent, newSteering);
+          Serial.printf("Turning right by 2%% more. [%d%%] PWM = %d\n", steeringPercent, newSteering);
           break;
         case 'l':
-          steeringPercent = max(-100, steeringPercent - 5);
+          steeringPercent = max((FULL_LEFT_PWM - NEUTRAL_PWM) / 5, steeringPercent - 2);
           newSteering = getSteeringByPercent(steeringPercent);
           bUpdateFlags |= STEERING_FLAG;
-          Serial.printf("Turning left by 5%% more. [%d%%] PWM = %d\n", steeringPercent, newSteering);
+          Serial.printf("Turning left by 2%% more. [%d%%] PWM = %d\n", steeringPercent, newSteering);
           break;
         case 'f':
-          throttlePercent = min(100, throttlePercent + 5);
+          throttlePercent = min(100, throttlePercent + 2);
           newThrottle = getThrottleByPercent(throttlePercent);
           bUpdateFlags |= THROTTLE_ESTOP_FLAG;
-          Serial.printf("Increase throttle 5%%. [%d%%] PWM = %d\n", throttlePercent, newThrottle);
+          Serial.printf("Increase throttle 2%%. [%d%%] PWM = %d\n", throttlePercent, newThrottle);
           break;
         case 'b':
-          throttlePercent = max(-100, throttlePercent - 5);
+          throttlePercent = max(-100, throttlePercent - 2);
           newThrottle = getThrottleByPercent(throttlePercent);
           bUpdateFlags |= THROTTLE_ESTOP_FLAG;
-          Serial.printf("Decrease throttle 5%%. [%d%%] PWM = %d\n", throttlePercent, newThrottle);
+          Serial.printf("Decrease throttle 2%%. [%d%%] PWM = %d\n", throttlePercent, newThrottle);
           break;
         case 's':
           steeringPercent = 0;
@@ -262,7 +262,12 @@ void flash()
 
 uint16_t getSteeringByPercent(int8_t percent)
 {
-  return (percent * (int) (FULL_RIGHT_PWM - FULL_LEFT_PWM) / 2) / 100 + NEUTRAL_PWM;
+  if (percent > 0)
+    return (percent * (int) (FULL_RIGHT_PWM - NEUTRAL_PWM)) / 100 + NEUTRAL_PWM;
+  else if (percent < 0)
+    return (percent * (int) (NEUTRAL_PWM - FULL_LEFT_PWM)) / 100 + NEUTRAL_PWM;
+  else // (percent == 0
+    return  NEUTRAL_PWM;
 }
 
 uint16_t getThrottleByPercent(int8_t percent)
